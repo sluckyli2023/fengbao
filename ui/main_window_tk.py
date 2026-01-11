@@ -522,11 +522,47 @@ class MainWindow:
         payload_hex = ' '.join(f'{b:02X}' for b in packet_data['payload'])
         text.insert(tk.END, payload_hex + "\n")
         
+        # 添加 ASCII 码显示
+        text.insert(tk.END, f"\nASCII 码:\n")
+        ascii_str = ''.join(chr(b) if 32 <= b < 127 else '.' for b in packet_data['payload'])
+        text.insert(tk.END, ascii_str + "\n")
+        
+        # 添加解密后的十六进制（如果有）
         parsed = packet_data.get('parsed_data', {})
         if parsed.get('success'):
+            text.insert(tk.END, f"\n解密后数据 (十六进制):\n")
+            text.insert(tk.END, parsed.get('decrypted_hex', '') + "\n")
+            
             text.insert(tk.END, f"\n解析结果:\n")
             text.insert(tk.END, f"功能: {parsed.get('function_name', '未知')}\n")
-            text.insert(tk.END, f"明文: {parsed.get('plaintext', '')}\n")
+            text.insert(tk.END, f"功能码: {parsed.get('function_code', 0)}\n")
+            
+            # 显示核心数据
+            core_data = parsed.get('core_data', {})
+            if core_data:
+                text.insert(tk.END, f"\n核心参数:\n")
+                text.insert(tk.END, f"  参数1: {core_data.get('param1', 0)}\n")
+                text.insert(tk.END, f"  参数2: {core_data.get('param2', 0)}\n")
+                text.insert(tk.END, f"  参数3: {core_data.get('param3', 0)}\n")
+                text.insert(tk.END, f"  参数4: {core_data.get('param4', 0)}\n")
+                text.insert(tk.END, f"  参数5: {core_data.get('param5', 0)}\n")
+            
+            # 显示扩展数据
+            ext_data = parsed.get('extended_data')
+            if ext_data:
+                text.insert(tk.END, f"\n扩展数据:\n")
+                if ext_data.get('text'):
+                    text.insert(tk.END, f"  文本: {ext_data['text']}\n")
+                text.insert(tk.END, f"  长度: {ext_data.get('length', 0)} 字节\n")
+                if ext_data.get('raw_bytes'):
+                    raw_hex = ' '.join(f'{b:02X}' for b in ext_data['raw_bytes'])
+                    text.insert(tk.END, f"  原始: {raw_hex}\n")
+            
+            text.insert(tk.END, f"\n明文格式:\n")
+            text.insert(tk.END, parsed.get('plaintext', '') + "\n")
+        else:
+            text.insert(tk.END, f"\n解析失败:\n")
+            text.insert(tk.END, parsed.get('error', '未知错误') + "\n")
         
         text.config(state=tk.DISABLED)
     
@@ -555,6 +591,26 @@ class MainWindow:
                 
                 data = []
                 for i, packet in enumerate(self.captured_packets, 1):
+                    # 处理解析结果，移除不可序列化的对象
+                    parsed = packet.get('parsed_data', {})
+                    parsed_clean = {}
+                    
+                    if parsed:
+                        for key, value in parsed.items():
+                            if key == 'extended_data' and isinstance(value, dict):
+                                # 处理扩展数据中的 bytes
+                                ext_clean = {}
+                                for k, v in value.items():
+                                    if k == 'raw_bytes' and isinstance(v, bytes):
+                                        ext_clean[k] = v.hex()  # 转换为十六进制字符串
+                                    else:
+                                        ext_clean[k] = v
+                                parsed_clean[key] = ext_clean
+                            elif isinstance(value, bytes):
+                                parsed_clean[key] = value.hex()
+                            else:
+                                parsed_clean[key] = value
+                    
                     data.append({
                         "序号": i,
                         "时间": packet['timestamp'].isoformat(),
@@ -562,7 +618,7 @@ class MainWindow:
                         "源地址": f"{packet['src_addr']}:{packet['src_port']}",
                         "目标地址": f"{packet['dst_addr']}:{packet['dst_port']}",
                         "原始数据": packet['payload'].hex(),
-                        "解析结果": packet.get('parsed_data', {})
+                        "解析结果": parsed_clean
                     })
                 
                 with open(filename, 'w', encoding='utf-8') as f:

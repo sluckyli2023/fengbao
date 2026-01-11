@@ -90,10 +90,9 @@ class PacketInterceptor:
         """拦截循环（在独立线程中运行）"""
         try:
             # 构建过滤规则
+            # 注意：WinDivert 的 processId 过滤在某些情况下不可靠
+            # 我们使用 TCP 过滤，然后在应用层根据 PID 过滤
             filter_parts = ["tcp"]
-            
-            if self.target_pid:
-                filter_parts.append(f"processId == {self.target_pid}")
             
             if self.target_port:
                 filter_parts.append(f"(tcp.DstPort == {self.target_port} or tcp.SrcPort == {self.target_port})")
@@ -101,6 +100,8 @@ class PacketInterceptor:
             filter_str = " and ".join(filter_parts)
             
             print(f"[拦截器] 过滤规则: {filter_str}")
+            if self.target_pid:
+                print(f"[拦截器] 目标进程 PID: {self.target_pid} (应用层过滤)")
             
             # 打开 WinDivert
             with pydivert.WinDivert(filter_str) as w:
@@ -112,6 +113,16 @@ class PacketInterceptor:
                         break
                     
                     try:
+                        # 如果指定了 PID，在应用层过滤
+                        if self.target_pid:
+                            # 获取封包的进程 ID
+                            packet_pid = getattr(packet, 'process_id', None)
+                            
+                            # 如果无法获取 PID 或 PID 不匹配，直接转发
+                            if packet_pid is None or packet_pid != self.target_pid:
+                                w.send(packet)
+                                continue
+                        
                         self._handle_packet(packet, w)
                     except Exception as e:
                         print(f"[拦截器] 处理封包错误: {e}")
@@ -122,6 +133,8 @@ class PacketInterceptor:
             print("[拦截器] 错误: 需要管理员权限!")
         except Exception as e:
             print(f"[拦截器] 启动失败: {e}")
+            import traceback
+            traceback.print_exc()
         finally:
             self.running = False
     

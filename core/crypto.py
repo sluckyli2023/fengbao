@@ -217,9 +217,17 @@ class UniversalPacketParser:
             result['function_code'] = func_code
             result['function_name'] = self.FUNCTION_NAMES.get(func_code, f"未知功能_{func_code}")
             
+            # 正确的参数位置（参考程序验证）：
+            # [0-3]   param1 (4字节)
+            # [4-7]   param2 (4字节)
+            # [8-9]   功能码 (2字节) - 已在上面识别
+            # [10-11] param3 (2字节)
+            # [12-13] param4 (2字节)
+            # [14-15] param5 (2字节)
             core_data = {
                 'param1': struct.unpack('<I', bytes(decrypted_data[0:4]))[0],
                 'param2': struct.unpack('<I', bytes(decrypted_data[4:8]))[0],
+                'function_code': func_code,  # 功能码在 [8:10]
                 'param3': struct.unpack('<H', bytes(decrypted_data[10:12]))[0],
                 'param4': struct.unpack('<H', bytes(decrypted_data[12:14]))[0],
                 'param5': struct.unpack('<H', bytes(decrypted_data[14:16]))[0],
@@ -236,15 +244,23 @@ class UniversalPacketParser:
                 
                 # 尝试解析为GBK文本
                 try:
-                    # 限制读取长度，避免乱码
-                    text_bytes = bytes(decrypted_data[16:24]) if len(decrypted_data) >= 24 else bytes(decrypted_data[16:])
+                    # 扩展数据从第16字节开始
+                    text_bytes = bytes(decrypted_data[16:])
+                    
+                    # 移除尾部的 0x00 和不可打印字符
                     text_bytes = text_bytes.rstrip(b'\x00')
+                    
                     if text_bytes:
+                        # 解码为 GBK
                         text = text_bytes.decode('gbk', errors='ignore')
-                        text = ''.join(c for c in text if c.isprintable())
+                        
+                        # 清理不可打印字符（保留中文和常见符号）
+                        text = ''.join(c for c in text if c.isprintable() or ord(c) > 127)
+                        
                         if text:
                             extended_data['text'] = text
-                except:
+                except Exception as e:
+                    # 解码失败时，尝试显示十六进制
                     pass
                 
                 result['extended_data'] = extended_data
@@ -263,15 +279,17 @@ class UniversalPacketParser:
         return result
     
     def _generate_plaintext(self, core_data: Dict, extended_data: Optional[Dict]) -> str:
-        """生成明文格式"""
+        """生成明文格式 - 参考程序格式"""
+        # 参考程序格式：发送封包（param1，param2，功能码，param3，param4，文本）
         params = [
             core_data['param1'],
             core_data['param2'],
+            core_data['function_code'],  # 添加功能码
             core_data['param3'],
-            core_data['param4'],
-            core_data['param5']
+            core_data['param4']
         ]
         
+        # 扩展数据（文本）
         if extended_data and extended_data.get('text'):
             params.append(extended_data['text'])
         
