@@ -51,19 +51,7 @@ config.json
 secrets.json
 
 # 开发进度文档（不上传到 GitHub）
-.cursor_state.md
-CLEANUP_DONE.md
-CLEANUP_PLAN.md
-CROSS_PLATFORM_BUILD.md
-FINAL_SUMMARY.md
-GIT_COMMANDS.md
-PHASE_2_DONE.md
-PHASE_3_DONE.md
-REFACTOR_PLAN.md
-REFACTOR_PROGRESS.md
-TODAY_SUMMARY.md
-README.md
-*.sh
+*.md
 
 # 测试数据（不上传到 GitHub）
 jilu/
