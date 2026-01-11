@@ -1,0 +1,14 @@
+# 核心依赖 - 重构后
+pydivert>=2.1.0  # WinDivert 封包拦截（替代 Scapy）
+psutil>=5.9.0    # 进程管理
+
+# GUI 依赖 - 重构后
+# tkinter 是 Python 内置的，不需要安装
+
+# 注意：以下依赖已移除（重构前使用）
+# scapy>=2.5.0     # 已替换为 pydivert
+# PyQt5>=5.15.0    # 已替换为 tkinter
+
+# 打包工具（仅开发时需要，不会打包到 EXE 中）
+# pyinstaller>=5.0.0
+
